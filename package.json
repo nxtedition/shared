@@ -12,5 +12,24 @@
   "bugs": {
     "url": "https://github.com/nxtedition/shared/issues"
   },
-  "homepage": "https://github.com/nxtedition/shared#readme"
+  "homepage": "https://github.com/nxtedition/shared#readme",
+  "lint-staged": {
+    "*.{js,jsx,ts}": [
+      "eslint",
+      "prettier --write"
+    ]
+  },
+  "prettier": {
+    "printWidth": 100,
+    "semi": false,
+    "singleQuote": true,
+    "jsxSingleQuote": true
+  },
+  "devDependencies": {
+    "husky": "^7.0.4",
+    "lint-staged": "^12.3.7"
+  },
+  "scripts": {
+    "prepare": "husky install"
+  }
 }
