@@ -25,13 +25,12 @@ const worker = new Worker(new URL('worker.js', import.meta.url), {
 
 const writeToWorker = shared.writer(reader)
 
-shared.reader(writer, async (buffer) => {
+writeToWorker(Buffer.from('ping'))
+
+for await (const buffer of shared.reader(writer)) {
   console.log(`From worker ${buffer}`)
   await tp.setTimeout(1e3) // Backpressure
-})
-
-while (true) {
-  await writeToParent(Buffer.from('Hello from parent')
+  writeToWorker(Buffer.from('pong'))
 }
 ```
 
@@ -43,12 +42,9 @@ import tp from 'timers/promise'
 
 const writeToParent = shared.writer(workerData.writer)
 
-shared.reader(workerData.reader, (buffer) => {
+for await (const buffer of shared.reader(workerData.reader)) {
   console.log(`From parent ${buffer}`)
   await tp.setTimeout(1e3) // Backpressure
-})
-
-while (true) {
-  await writeToParent(Buffer.from('Hello from worker')
+  writeToWorker(Buffer.from('pong'))
 }
 ```

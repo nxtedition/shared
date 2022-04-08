@@ -1,5 +1,6 @@
 const WRITE_INDEX = 0
 const READ_INDEX = 1
+const END_OF_PACKET = -1
 
 export function alloc(size) {
   return {
@@ -8,7 +9,7 @@ export function alloc(size) {
   }
 }
 
-export async function reader({ sharedState, sharedBuffer }, cb) {
+async function* _reader({ sharedState, sharedBuffer }, cb) {
   const state = new Int32Array(sharedState)
   const buffer = Buffer.from(sharedBuffer)
 
@@ -25,15 +26,15 @@ export async function reader({ sharedState, sharedBuffer }, cb) {
     while (readPos !== writePos) {
       const len = buffer.readInt32LE(readPos)
 
-      if (len === -1) {
+      if (len === END_OF_PACKET) {
         readPos = 0
       } else {
         const raw = buffer.slice(readPos + 4, readPos + len)
         readPos += len
-
-        const thenable = cb(raw)
-        if (thenable?.then && typeof thenable.then === 'function') {
-          await thenable
+        if (cb) {
+          cb()
+        } else {
+          yield raw
         }
       }
 
@@ -41,6 +42,14 @@ export async function reader({ sharedState, sharedBuffer }, cb) {
     }
 
     Atomics.notify(state, READ_INDEX)
+  }
+}
+
+export function reader(options, cb) {
+  if (cb) {
+    _reader(options, cb).next()
+  } else {
+    return _reader(options)
   }
 }
 
