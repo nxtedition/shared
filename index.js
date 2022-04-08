@@ -86,10 +86,6 @@ export function writer({ sharedState, sharedBuffer }) {
   }
 
   async function flush() {
-    if (flushing) {
-      return flushing
-    }
-
     while (queue.length) {
       while (!tryWrite(queue[0])) {
         const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)

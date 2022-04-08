@@ -25,9 +25,39 @@
     "singleQuote": true,
     "jsxSingleQuote": true
   },
+  "eslintConfig": {
+    "root": true,
+    "parserOptions": {
+      "ecmaFeatures": {
+        "ecmaVersion": 2020
+      }
+    },
+    "extends": [
+      "standard",
+      "prettier",
+      "prettier/prettier"
+    ],
+    "rules": {
+      "quotes": [
+        "error",
+        "single",
+        {
+          "avoidEscape": true,
+          "allowTemplateLiterals": true
+        }
+      ]
+    }
+  },
   "devDependencies": {
+    "eslint": "^8.12.0",
     "husky": "^7.0.4",
-    "lint-staged": "^12.3.7"
+    "lint-staged": "^12.3.7",
+    "prettier": "^2.6.2",
+    "eslint-config-prettier": "^8.4.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.0.0"
   },
   "scripts": {
     "prepare": "husky install"
