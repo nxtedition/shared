@@ -12,6 +12,7 @@
   "bugs": {
     "url": "https://github.com/nxtedition/shared/issues"
   },
+  "type": "module",
   "homepage": "https://github.com/nxtedition/shared#readme",
   "lint-staged": {
     "*.{js,jsx,ts}": [
