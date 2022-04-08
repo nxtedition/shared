@@ -1,0 +1,16 @@
+{
+  "name": "@nxtedition/shared",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nxtedition/shared.git"
+  },
+  "author": "Robert Nagy <ronagy@icloud.com>",
+  "license": "MIT License",
+  "bugs": {
+    "url": "https://github.com/nxtedition/shared/issues"
+  },
+  "homepage": "https://github.com/nxtedition/shared#readme"
+}
