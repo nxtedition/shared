@@ -32,7 +32,7 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
         const raw = buffer.slice(readPos + 4, readPos + len)
         readPos += len
         if (cb) {
-          cb()
+          cb(raw)
         } else {
           yield raw
         }
