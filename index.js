@@ -31,7 +31,10 @@ export async function reader({ sharedState, sharedBuffer }, cb) {
         const raw = buffer.slice(readPos + 4, readPos + len)
         readPos += len
 
-        await cb(raw)
+        const thenable = cb(raw)
+        if (thenable?.then && typeof thenable.then === 'function') {
+          await thenable
+        }
       }
 
       Atomics.store(state, READ_INDEX, readPos)
