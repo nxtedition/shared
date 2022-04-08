@@ -1,7 +1,7 @@
 {
   "name": "@nxtedition/shared",
   "version": "1.0.0",
-  "description": "",
+  "description": "Ring Buffer for NodeJS cross Worker communication",
   "main": "index.js",
   "repository": {
     "type": "git",

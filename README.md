@@ -1,6 +1,6 @@
 # shared
 
-Ringbuffer for NodeJS cross Worker communication
+Ring Buffer for NodeJS cross Worker communication.
 
 ## Install
 
