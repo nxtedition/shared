@@ -111,14 +111,14 @@ export function writer({ sharedState, sharedBuffer }) {
     flushing = null
   }
 
-  async function write(...raw) {
+  function write(...raw) {
     if (!queue.length && tryWrite(...raw)) {
       return
     }
 
     queue.push(Buffer.concat(raw))
 
-    await (flushing ??= flush())
+    return (flushing ??= flush())
   }
 
   return write
