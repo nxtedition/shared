@@ -79,7 +79,7 @@ export function writer({ sharedState, sharedBuffer }) {
 
     let len = 4
     for (const buf of raw) {
-      len += buf.byteLength ?? Buffer.byteLength(buf)
+      len += buf.byteLength ?? buf.length * 3
     }
 
     if (size - writePos < len + 4) {
@@ -97,7 +97,7 @@ export function writer({ sharedState, sharedBuffer }) {
       }
     }
 
-    buffer.writeInt32LE(len, writePos)
+    const lenPos = writePos
     writePos += 4
 
     for (const buf of raw) {
@@ -108,6 +108,8 @@ export function writer({ sharedState, sharedBuffer }) {
         writePos += buf.byteLength
       }
     }
+
+    buffer.writeInt32LE(writePos - lenPos, lenPos)
 
     Atomics.store(state, WRITE_INDEX, writePos)
     Atomics.notify(state, WRITE_INDEX)
