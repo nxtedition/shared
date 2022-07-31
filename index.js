@@ -1,3 +1,5 @@
+import assert from 'node:assert'
+
 const WRITE_INDEX = 0
 const READ_INDEX = 1
 const END_OF_PACKET = -1
@@ -77,13 +79,15 @@ export function writer({ sharedState, sharedBuffer }) {
 
     readPos = Atomics.load(state, READ_INDEX)
 
-    let len = 4
+    let maxLen = 4
     for (const buf of raw) {
-      len += buf.byteLength ?? buf.length * 3
+      maxLen += buf.byteLength ?? buf.length * 3
     }
 
-    if (size - writePos < len + 4) {
-      if (readPos < len + 4) {
+    assert(maxLen < size / 2)
+
+    if (size - writePos < maxLen + 4) {
+      if (readPos < maxLen + 4) {
         return false
       }
 
@@ -92,7 +96,7 @@ export function writer({ sharedState, sharedBuffer }) {
     } else {
       const available = writePos >= readPos ? size - writePos : readPos - writePos
 
-      if (available < len + 4) {
+      if (available < maxLen + 4) {
         return false
       }
     }
@@ -109,7 +113,11 @@ export function writer({ sharedState, sharedBuffer }) {
       }
     }
 
-    buffer.writeInt32LE(writePos - lenPos, lenPos)
+    const len = writePos - lenPos
+
+    assert(len <= maxLen)
+
+    buffer.writeInt32LE(len, lenPos)
 
     Atomics.store(state, WRITE_INDEX, writePos)
     Atomics.notify(state, WRITE_INDEX)
