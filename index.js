@@ -67,9 +67,20 @@ export function writer({ sharedState, sharedBuffer }) {
   let flushing = null
 
   function tryWrite(...raw) {
+    if (Array.isArray(raw[0])) {
+      raw = raw[0]
+    }
+
+    if (!raw.length) {
+      return true
+    }
+
     readPos = Atomics.load(state, READ_INDEX)
 
-    const len = raw.reduce((len, buf) => len + buf.byteLength, 4)
+    let len = 0
+    for (const buf of raw) {
+      len += buf.byteLength ?? Buffer.byteLength(buf)
+    }
 
     if (size - writePos < len + 4) {
       if (readPos < len + 4) {
@@ -90,8 +101,12 @@ export function writer({ sharedState, sharedBuffer }) {
     writePos += 4
 
     for (const buf of raw) {
-      buffer.set(buf, writePos)
-      writePos += buf.byteLength
+      if (typeof buf === 'string') {
+        writePos += buffer.write(buf, writePos)
+      } else {
+        buffer.set(buf, writePos)
+        writePos += buf.byteLength
+      }
     }
 
     Atomics.store(state, WRITE_INDEX, writePos)
