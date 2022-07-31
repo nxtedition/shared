@@ -77,7 +77,7 @@ export function writer({ sharedState, sharedBuffer }) {
 
     readPos = Atomics.load(state, READ_INDEX)
 
-    let len = 0
+    let len = 4
     for (const buf of raw) {
       len += buf.byteLength ?? Buffer.byteLength(buf)
     }
