@@ -120,7 +120,7 @@ export function writer({ sharedState, sharedBuffer }) {
             dst.set(buf)
             return buf.byteLength
           },
-          queue[0]
+          buf
         )
       ) {
         const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)
