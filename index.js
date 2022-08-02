@@ -71,6 +71,8 @@ export function writer({ sharedState, sharedBuffer }) {
   function tryWrite(maxLen, fn, opaque) {
     readPos = Atomics.load(state, READ_INDEX)
 
+    maxLen += 4 // len
+
     if (size - writePos < maxLen + 4) {
       if (readPos < maxLen + 4) {
         return false
@@ -152,7 +154,7 @@ export function writer({ sharedState, sharedBuffer }) {
         args = args[0]
       }
 
-      len = 4
+      len = 0
       for (const buf of args) {
         len += buf.byteLength ?? buf.length * 3
       }
