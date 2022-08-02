@@ -103,7 +103,14 @@ export function writer({ sharedState, sharedBuffer }) {
     return true
   }
 
-  async function flush() {
+  function flush() {
+    if (queue.length && !flushing) {
+      flushing = _flush()
+    }
+    return flushing
+  }
+
+  async function _flush() {
     while (queue.length) {
       const buf = queue[0]
       while (
@@ -129,7 +136,7 @@ export function writer({ sharedState, sharedBuffer }) {
 
   function write(...args) {
     if (!args.length) {
-      return true
+      return
     }
 
     let len
@@ -173,8 +180,11 @@ export function writer({ sharedState, sharedBuffer }) {
     const buf = Buffer.allocUnsafe(len)
     queue.push(buf.subarray(0, fn(0, buf)))
 
-    return (flushing ??= flush())
+    return flush()
   }
+
+  write.write = write
+  write.flush = flush
 
   return write
 }
