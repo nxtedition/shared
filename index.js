@@ -31,7 +31,7 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
       if (len === END_OF_PACKET) {
         readPos = 0
       } else {
-        const raw = buffer.slice(readPos + 4, readPos + len)
+        const raw = buffer.subarray(readPos + 4, readPos + len)
         readPos += len
         if (cb) {
           const thenable = cb(raw)
@@ -68,23 +68,8 @@ export function writer({ sharedState, sharedBuffer }) {
   let writePos = 0
   let flushing = null
 
-  function tryWrite(...raw) {
-    if (Array.isArray(raw[0])) {
-      raw = raw[0]
-    }
-
-    if (!raw.length) {
-      return true
-    }
-
+  function tryWrite(maxLen, fn, opaque) {
     readPos = Atomics.load(state, READ_INDEX)
-
-    let maxLen = 4
-    for (const buf of raw) {
-      maxLen += buf.byteLength ?? buf.length * 3
-    }
-
-    assert(maxLen < size / 2)
 
     if (size - writePos < maxLen + 4) {
       if (readPos < maxLen + 4) {
@@ -104,14 +89,7 @@ export function writer({ sharedState, sharedBuffer }) {
     const lenPos = writePos
     writePos += 4
 
-    for (const buf of raw) {
-      if (typeof buf === 'string') {
-        writePos += buffer.write(buf, writePos)
-      } else {
-        buffer.set(buf, writePos)
-        writePos += buf.byteLength
-      }
-    }
+    writePos += fn(buffer.subarray(writePos, writePos + maxLen), opaque)
 
     const len = writePos - lenPos
 
@@ -127,7 +105,17 @@ export function writer({ sharedState, sharedBuffer }) {
 
   async function flush() {
     while (queue.length) {
-      while (!tryWrite(queue[0])) {
+      const buf = queue[0]
+      while (
+        !tryWrite(
+          buf.byteLength,
+          (dst, buf) => {
+            dst.set(buf)
+            return buf.byteLength
+          },
+          queue[0]
+        )
+      ) {
         const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)
         if (async) {
           await value
@@ -139,12 +127,51 @@ export function writer({ sharedState, sharedBuffer }) {
     flushing = null
   }
 
-  function write(...raw) {
-    if (!queue.length && tryWrite(...raw)) {
+  function write(...args) {
+    if (!args.length) {
+      return true
+    }
+
+    let len
+    let fn
+    let opaque
+
+    if (Number.isInteger(args[0])) {
+      len = args[0]
+      fn = args[1]
+      opaque = args[2]
+    } else {
+      if (Array.isArray(args[0])) {
+        args = args[0]
+      }
+
+      len = 4
+      for (const buf of args) {
+        len += buf.byteLength ?? buf.length * 3
+      }
+
+      fn = (dst, data) => {
+        let pos = 0
+        for (const buf of data) {
+          if (typeof buf === 'string') {
+            pos += dst.write(buf, pos)
+          } else {
+            dst.set(buf, pos)
+            pos += buf.byteLength
+          }
+        }
+        return pos
+      }
+
+      opaque = args
+    }
+
+    if (!queue.length && tryWrite(len, fn, opaque)) {
       return
     }
 
-    queue.push(Buffer.concat(raw))
+    const buf = Buffer.allocUnsafe(len)
+    queue.push(buf.subarray(0, fn(0, buf)))
 
     return (flushing ??= flush())
   }
