@@ -180,7 +180,7 @@ export function writer({ sharedState, sharedBuffer }) {
     }
 
     const buf = Buffer.allocUnsafe(len)
-    queue.push(buf.subarray(0, fn(0, buf)))
+    queue.push(buf.subarray(0, fn(buf, opaque)))
 
     return flush()
   }
