@@ -38,7 +38,7 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
       const len = buffer.readInt32LE(readPos)
       readPos += 4
 
-      assert(len > 0)
+      assert(len >= 0)
 
       const raw = buffer.subarray(readPos, readPos + len)
       readPos += len
@@ -137,7 +137,7 @@ export function writer({ sharedState, sharedBuffer }) {
       fn = args[1]
       opaque = args[2]
 
-      assert(len > 0)
+      assert(len >= 0)
       assert(typeof fn === 'function')
     } else {
       if (Array.isArray(args[0])) {
