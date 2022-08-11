@@ -112,8 +112,8 @@ export function writer({ sharedState, sharedBuffer }) {
   }
 
   async function _write(len, fn, opaque) {
-    const buf = Buffer.allocUnsafe(len)
-    buf.subarray(0, fn(buf, opaque))
+    let buf = Buffer.allocUnsafe(len)
+    buf = buf.subarray(0, fn(buf, opaque))
 
     while (!tryWrite(len, (dst, buf) => buf.copy(dst), buf)) {
       const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)
