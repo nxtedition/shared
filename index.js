@@ -62,11 +62,9 @@ export function writer({ sharedState, sharedBuffer }) {
   const state = new Int32Array(sharedState)
   const buffer = Buffer.from(sharedBuffer)
   const size = buffer.byteLength
-  const queue = []
 
   let readPos = 0
   let writePos = 0
-  let flushing = null
 
   function tryWrite(maxLen, fn, opaque) {
     readPos = Atomics.load(state, READ_INDEX)
@@ -105,35 +103,16 @@ export function writer({ sharedState, sharedBuffer }) {
     return true
   }
 
-  function flush() {
-    if (queue.length && !flushing) {
-      flushing = _flush()
-    }
-    return flushing
-  }
+  async function _write(len, fn, opaque) {
+    const buf = Buffer.allocUnsafe(len)
+    buf.subarray(0, fn(buf, opaque))
 
-  async function _flush() {
-    while (queue.length) {
-      const buf = queue[0]
-      while (
-        !tryWrite(
-          buf.byteLength,
-          (dst, buf) => {
-            dst.set(buf)
-            return buf.byteLength
-          },
-          buf
-        )
-      ) {
-        const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)
-        if (async) {
-          await value
-        }
+    while (!tryWrite(len, (dst, buf) => buf.copy(dst), buf)) {
+      const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)
+      if (async) {
+        await value
       }
-      queue.shift()
     }
-
-    flushing = null
   }
 
   function write(...args) {
@@ -175,18 +154,13 @@ export function writer({ sharedState, sharedBuffer }) {
       opaque = args
     }
 
-    if (!queue.length && tryWrite(len, fn, opaque)) {
-      return
+    if (!tryWrite(len, fn, opaque)) {
+      return _write(len, fn, opaque)
     }
-
-    const buf = Buffer.allocUnsafe(len)
-    queue.push(buf.subarray(0, fn(buf, opaque)))
-
-    return flush()
   }
 
   write.write = write
-  write.flush = flush
+  write.flush = () => {}
 
   return write
 }
