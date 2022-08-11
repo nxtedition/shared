@@ -27,6 +27,7 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
 
     while (readPos !== writePos) {
       const len = buffer.readInt32LE(readPos)
+      assert(len > 0)
 
       if (len === END_OF_PACKET) {
         readPos = 0
@@ -128,6 +129,9 @@ export function writer({ sharedState, sharedBuffer }) {
       len = args[0]
       fn = args[1]
       opaque = args[2]
+
+      assert(len > 0)
+      assert(typeof fn === 'function')
     } else {
       if (Array.isArray(args[0])) {
         args = args[0]
