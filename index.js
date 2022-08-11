@@ -65,6 +65,7 @@ export function writer({ sharedState, sharedBuffer }) {
   let writePos = 0
 
   function tryWrite(maxLen, fn, opaque) {
+    assert(maxLen < size - 8)
     readPos = Atomics.load(state, READ_INDEX)
 
     maxLen += 4 // len
