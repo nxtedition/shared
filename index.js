@@ -144,8 +144,10 @@ export function writer({ sharedState, sharedBuffer }) {
         args = args[0]
       }
 
+      const data = args
+
       len = 0
-      for (const buf of args) {
+      for (const buf of data) {
         len += buf.byteLength ?? buf.length * 3
       }
 
@@ -162,7 +164,7 @@ export function writer({ sharedState, sharedBuffer }) {
         return pos
       }
 
-      opaque = args
+      opaque = data
     }
 
     if (!tryWrite(len, fn, opaque)) {
