@@ -2,7 +2,6 @@ import assert from 'node:assert'
 
 const WRITE_INDEX = 0
 const READ_INDEX = 1
-const END_OF_PACKET = -1
 
 export function alloc(size) {
   return {
@@ -26,19 +25,28 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
     writePos = Atomics.load(state, WRITE_INDEX)
 
     while (readPos !== writePos) {
+      const tag = buffer.readInt32LE(readPos)
+      readPos += 4
+
+      if (tag === -1) {
+        readPos = 0
+        continue
+      }
+
+      assert.equal(tag, -2)
+
       const len = buffer.readInt32LE(readPos)
+      readPos += 4
+
       assert(len > 0)
 
-      if (len === END_OF_PACKET) {
-        readPos = 0
+      const raw = buffer.subarray(readPos, readPos + len)
+      readPos += len
+
+      if (cb) {
+        await cb(raw)
       } else {
-        const raw = buffer.subarray(readPos + 4, readPos + len)
-        readPos += len
-        if (cb) {
-          await cb(raw)
-        } else {
-          yield raw
-        }
+        yield raw
       }
 
       Atomics.store(state, READ_INDEX, readPos)
@@ -65,13 +73,12 @@ export function writer({ sharedState, sharedBuffer }) {
   let writePos = 0
 
   function tryWrite(maxLen, fn, opaque) {
-    assert(maxLen < size - 8)
+    assert(maxLen < size - 12)
+
     readPos = Atomics.load(state, READ_INDEX)
 
-    maxLen += 4 // len
-
-    if (size - writePos < maxLen + 4) {
-      if (readPos < maxLen + 4) {
+    if (size - writePos < maxLen + 12) {
+      if (readPos < maxLen + 12) {
         return false
       }
 
@@ -80,17 +87,19 @@ export function writer({ sharedState, sharedBuffer }) {
     } else {
       const available = writePos >= readPos ? size - writePos : readPos - writePos
 
-      if (available < maxLen + 4) {
+      if (available < maxLen + 12) {
         return false
       }
     }
 
+    buffer.writeInt32LE(-2, writePos)
+    writePos += 4
+
     const lenPos = writePos
     writePos += 4
 
-    writePos += fn(buffer.subarray(writePos, writePos + maxLen), opaque)
-
-    const len = writePos - lenPos
+    const len = fn(buffer.subarray(writePos, writePos + maxLen), opaque)
+    writePos += len
 
     assert(len <= maxLen)
 
