@@ -155,10 +155,10 @@ export function writer({ sharedState, sharedBuffer }) {
           if (typeof buf === 'string') {
             pos += dst.write(buf, pos)
           } else {
-            dst.set(buf, pos)
-            pos += buf.byteLength
+            pos += buf.copy(dst, pos)
           }
         }
+        assert(pos <= len)
         return pos
       }
 
