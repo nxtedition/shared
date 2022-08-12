@@ -70,8 +70,6 @@ export function writer({ sharedState, sharedBuffer }) {
   let writePos = 0
 
   function _tryWrite(maxLen, fn, opaque) {
-    maxLen += 4
-
     assert(maxLen <= size)
 
     readPos = Atomics.load(state, READ_INDEX)
@@ -95,7 +93,7 @@ export function writer({ sharedState, sharedBuffer }) {
     writePos += 4
 
     const len = fn(buffer.subarray(writePos + 4, writePos + 4 + maxLen), opaque)
-    assert(len <= maxLen - 4, `len: ${len} <= maxLen: ${maxLen - 4}`)
+    assert(len <= maxLen, `len: ${len} <= maxLen: ${maxLen}`)
     assert(len <= size, `len: ${len} <= size: ${size}`)
 
     buffer.writeInt32LE(len, writePos)
