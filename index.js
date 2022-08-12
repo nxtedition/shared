@@ -33,12 +33,10 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
         continue
       }
 
-      assert.equal(tag, -2)
+      assert(tag === -2, `tag: ${tag} === -2`)
 
       const len = buffer.readInt32LE(readPos)
       readPos += 4
-
-      assert(len >= 0)
 
       const raw = buffer.subarray(readPos, readPos + len)
       readPos += len
@@ -96,18 +94,13 @@ export function writer({ sharedState, sharedBuffer }) {
     buffer.writeInt32LE(-2, writePos)
     writePos += 4
 
-    const lenPos = writePos
-    writePos += 4
+    const len = fn(buffer.subarray(writePos + 4, writePos + 4 + maxLen), opaque)
+    assert(len <= maxLen - 4, `len: ${len} <= maxLen: ${maxLen - 4}`)
+    assert(len <= size, `len: ${len} <= size: ${size}`)
 
-    const len = fn(buffer.subarray(writePos, writePos + maxLen), opaque)
-    assert(len <= size)
-
-    writePos += len
+    buffer.writeInt32LE(len, writePos)
+    writePos += 4 + len
     buffer.writeInt32LE(-3, writePos)
-
-    assert(len <= maxLen)
-
-    buffer.writeInt32LE(len, lenPos)
 
     Atomics.store(state, WRITE_INDEX, writePos)
     Atomics.notify(state, WRITE_INDEX)
@@ -143,8 +136,8 @@ export function writer({ sharedState, sharedBuffer }) {
       fn = args[1]
       opaque = args[2]
 
-      assert(maxLen >= 0)
-      assert(typeof fn === 'function')
+      assert(maxLen >= 0, `maxLen: ${maxLen} >= 0`)
+      assert(typeof fn === 'function', `fn: ${typeof fn} === 'function`)
     } else {
       if (Array.isArray(args[0])) {
         args = args[0]
@@ -160,7 +153,6 @@ export function writer({ sharedState, sharedBuffer }) {
             pos += buf.copy(dst, pos)
           }
         }
-        assert(pos < maxLen)
         return pos
       }
       opaque = args
