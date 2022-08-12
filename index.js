@@ -74,96 +74,75 @@ export function writer({ sharedState, sharedBuffer }) {
   let readPos = 0
   let writePos = 0
 
-  function _tryWrite(maxLen, fn, opaque) {
-    assert(maxLen <= size)
-
-    readPos = Atomics.load(state, READ_INDEX)
-
-    if (size - writePos < maxLen) {
-      if (readPos < maxLen) {
-        return false
-      }
-
-      buffer.writeInt32LE(-1, writePos)
-      writePos = 0
-    } else {
-      const available = writePos >= readPos ? size - writePos : readPos - writePos
-
-      if (available < maxLen) {
-        return false
-      }
-    }
-
-    buffer.writeInt32LE(-2, writePos)
-    writePos += 4
-
-    buffer.writeInt32LE(-3, writePos)
-    const len = fn(buffer.subarray(writePos + 4, writePos + 4 + maxLen), opaque)
-    assert(len > 0, `len: ${len} > 0`)
-    assert(len <= maxLen, `len: ${len} <= maxLen: ${maxLen}`)
-    assert(len <= size, `len: ${len} <= size: ${size}`)
-
-    buffer.writeInt32LE(len, writePos)
-    writePos += 4 + len
-    buffer.writeInt32LE(-4, writePos)
-
-    Atomics.store(state, WRITE_INDEX, writePos)
-    Atomics.notify(state, WRITE_INDEX)
-
-    return true
-  }
-
-  function defaultWrite(dst, data) {
-    let pos = 0
-    for (const buf of data) {
-      if (typeof buf === 'string') {
-        pos += dst.write(buf, pos)
-      } else {
-        pos += buf.copy(dst, pos)
-      }
-    }
-    return pos
-  }
-
-  function write(...args) {
+  return function write(...args) {
     if (!args.length) {
       return
     }
 
-    let maxLen
+    let len
     let fn
-    let opaque
 
     if (Number.isInteger(args[0])) {
-      maxLen = args[0]
-      fn = args[1]
-      opaque = args[2]
+      len = args.shift()
+      fn = args.shift()
 
-      assert(maxLen >= 0, `maxLen: ${maxLen} >= 0`)
+      assert(len >= 0, `len: ${len} >= 0`)
       assert(typeof fn === 'function', `fn: ${typeof fn} === 'function`)
     } else {
       if (Array.isArray(args[0])) {
         args = args[0]
       }
 
-      maxLen = 0
+      len = 0
       for (const buf of args) {
-        maxLen += Buffer.byteLength(buf)
+        len += Buffer.byteLength(buf)
       }
-
-      fn = defaultWrite
-
-      opaque = args
     }
 
-    while (!_tryWrite(maxLen, fn, opaque)) {
-      // TODO (fix): Async? Warn? Timeout?
-      Atomics.wait(state, READ_INDEX, readPos, 1e3)
+    assert(len <= size)
+
+    readPos = Atomics.load(state, READ_INDEX)
+
+    if (size - writePos < len) {
+      buffer.subarray(writePos).fill(-1)
+      writePos = 0
     }
+
+    while (true) {
+      const available = writePos >= readPos ? size - writePos : readPos - writePos
+      if (available >= len) {
+        break
+      }
+      Atomics.wait(state, READ_INDEX, readPos)
+    }
+
+    buffer.writeInt32LE(-2, writePos)
+    writePos += 4
+
+    buffer.writeInt32LE(-3, writePos)
+
+    let pos = 0
+    if (fn) {
+      pos += fn(buffer.subarray(writePos + 4, writePos + 4 + len), ...args)
+    } else {
+      for (const buf of args) {
+        if (typeof buf === 'string') {
+          pos += buffer.write(buf, writePos + 4 + pos)
+        } else {
+          pos += buf.copy(buffer, writePos + 4 + pos)
+        }
+      }
+    }
+
+    assert(pos > 0, `pos: ${pos} > 0`)
+    assert(pos <= len, `pos: ${pos} <= len: ${len}`)
+    assert(pos <= size, `pos: ${pos} <= size: ${size}`)
+
+    buffer.writeInt32LE(pos, writePos)
+    writePos += 4 + pos
+    buffer.writeInt32LE(-4, writePos)
+
+    Atomics.store(state, WRITE_INDEX, writePos)
+    Atomics.notify(state, WRITE_INDEX)
   }
-
-  write.write = write
-  write.flush = () => {}
-
-  return write
 }
