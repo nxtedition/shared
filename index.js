@@ -38,6 +38,8 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
       const len = buffer.readInt32LE(readPos)
       readPos += 4
 
+      assert(len > 0, `len: ${len} > 0`)
+
       const raw = buffer.subarray(readPos, readPos + len)
       readPos += len
 
@@ -92,13 +94,15 @@ export function writer({ sharedState, sharedBuffer }) {
     buffer.writeInt32LE(-2, writePos)
     writePos += 4
 
+    buffer.writeInt32LE(-3, writePos)
     const len = fn(buffer.subarray(writePos + 4, writePos + 4 + maxLen), opaque)
+    assert(len > 0, `len: ${len} > 0`)
     assert(len <= maxLen, `len: ${len} <= maxLen: ${maxLen}`)
     assert(len <= size, `len: ${len} <= size: ${size}`)
 
     buffer.writeInt32LE(len, writePos)
     writePos += 4 + len
-    buffer.writeInt32LE(-3, writePos)
+    buffer.writeInt32LE(-4, writePos)
 
     Atomics.store(state, WRITE_INDEX, writePos)
     Atomics.notify(state, WRITE_INDEX)
@@ -106,19 +110,19 @@ export function writer({ sharedState, sharedBuffer }) {
     return true
   }
 
-  async function _write(maxLen, fn, opaque) {
-    assert(maxLen <= size)
+  // async function _write(maxLen, fn, opaque) {
+  //   assert(maxLen <= size)
 
-    const buf = Buffer.allocUnsafe(maxLen)
-    const len = fn(buf, opaque)
+  //   const buf = Buffer.allocUnsafe(maxLen)
+  //   const len = fn(buf, opaque)
 
-    while (!_tryWrite(len, (dst, buf) => buf.copy(dst, 0, 0, len))) {
-      const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)
-      if (async) {
-        await value
-      }
-    }
-  }
+  //   while (!_tryWrite(len, (dst, buf) => buf.copy(dst, 0, 0, len))) {
+  //     const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)
+  //     if (async) {
+  //       await value
+  //     }
+  //   }
+  // }
 
   function write(...args) {
     if (!args.length) {
@@ -156,8 +160,8 @@ export function writer({ sharedState, sharedBuffer }) {
       opaque = args
     }
 
-    if (!_tryWrite(maxLen, fn, opaque)) {
-      return _write(maxLen, fn, opaque)
+    while (!_tryWrite(maxLen, fn, opaque)) {
+      Atomics.wait(state, READ_INDEX, readPos)
     }
   }
 
