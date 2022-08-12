@@ -104,7 +104,9 @@ export function writer({ sharedState, sharedBuffer }) {
     readPos = Atomics.load(state, READ_INDEX)
 
     if (size - writePos < len) {
-      buffer.subarray(writePos).fill(-1)
+      buffer.writeInt32LE(-1, writePos)
+      writePos += 4
+      buffer.subarray(writePos).fill(-4)
       writePos = 0
     }
 
