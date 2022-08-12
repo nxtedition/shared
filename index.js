@@ -124,6 +124,18 @@ export function writer({ sharedState, sharedBuffer }) {
   //   }
   // }
 
+  function defaultWrite(dst, data) {
+    let pos = 0
+    for (const buf of data) {
+      if (typeof buf === 'string') {
+        pos += dst.write(buf, pos)
+      } else {
+        pos += buf.copy(dst, pos)
+      }
+    }
+    return pos
+  }
+
   function write(...args) {
     if (!args.length) {
       return
@@ -145,18 +157,13 @@ export function writer({ sharedState, sharedBuffer }) {
         args = args[0]
       }
 
-      maxLen = args.reduce((len, buf) => len + Buffer.byteLength(buf), 0)
-      fn = (dst, data) => {
-        let pos = 0
-        for (const buf of data) {
-          if (typeof buf === 'string') {
-            pos += dst.write(buf, pos)
-          } else {
-            pos += buf.copy(dst, pos)
-          }
-        }
-        return pos
+      maxLen = 0
+      for (const buf of args) {
+        maxLen += Buffer.byteLength(buf)
       }
+
+      fn = defaultWrite
+
       opaque = args
     }
 
