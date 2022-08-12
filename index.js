@@ -44,7 +44,10 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
       readPos += len
 
       if (cb) {
-        await cb(raw)
+        const thenable = cb(raw)
+        if (thenable) {
+          await thenable
+        }
       } else {
         yield raw
       }
@@ -110,20 +113,6 @@ export function writer({ sharedState, sharedBuffer }) {
     return true
   }
 
-  // async function _write(maxLen, fn, opaque) {
-  //   assert(maxLen <= size)
-
-  //   const buf = Buffer.allocUnsafe(maxLen)
-  //   const len = fn(buf, opaque)
-
-  //   while (!_tryWrite(len, (dst, buf) => buf.copy(dst, 0, 0, len))) {
-  //     const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)
-  //     if (async) {
-  //       await value
-  //     }
-  //   }
-  // }
-
   function defaultWrite(dst, data) {
     let pos = 0
     for (const buf of data) {
@@ -168,6 +157,7 @@ export function writer({ sharedState, sharedBuffer }) {
     }
 
     while (!_tryWrite(maxLen, fn, opaque)) {
+      // TODO (fix): Async? Warn? Timeout?
       Atomics.wait(state, READ_INDEX, readPos)
     }
   }
