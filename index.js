@@ -50,9 +50,8 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
       }
 
       Atomics.store(state, READ_INDEX, readPos)
+      Atomics.notify(state, READ_INDEX)
     }
-
-    Atomics.notify(state, READ_INDEX)
   }
 }
 
