@@ -158,8 +158,7 @@ export function writer({ sharedState, sharedBuffer }) {
 
     while (!_tryWrite(maxLen, fn, opaque)) {
       // TODO (fix): Async? Warn? Timeout?
-      const result = Atomics.wait(state, READ_INDEX, readPos, 1e3)
-      assert(result !== 'timed-out')
+      Atomics.wait(state, READ_INDEX, readPos, 1e3)
     }
   }
 
