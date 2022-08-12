@@ -66,18 +66,20 @@ export function reader(options, cb) {
 export function writer({ sharedState, sharedBuffer }) {
   const state = new Int32Array(sharedState)
   const buffer = Buffer.from(sharedBuffer)
-  const size = buffer.byteLength
+  const size = buffer.byteLength - 64
 
   let readPos = 0
   let writePos = 0
 
-  function tryWrite(maxLen, fn, opaque) {
-    assert(maxLen < size - 12)
+  function _tryWrite(maxLen, fn, opaque) {
+    maxLen += 4
+
+    assert(maxLen <= size)
 
     readPos = Atomics.load(state, READ_INDEX)
 
-    if (size - writePos < maxLen + 12) {
-      if (readPos < maxLen + 12) {
+    if (size - writePos < maxLen) {
+      if (readPos < maxLen) {
         return false
       }
 
@@ -86,7 +88,7 @@ export function writer({ sharedState, sharedBuffer }) {
     } else {
       const available = writePos >= readPos ? size - writePos : readPos - writePos
 
-      if (available < maxLen + 12) {
+      if (available < maxLen) {
         return false
       }
     }
@@ -98,7 +100,10 @@ export function writer({ sharedState, sharedBuffer }) {
     writePos += 4
 
     const len = fn(buffer.subarray(writePos, writePos + maxLen), opaque)
+    assert(len <= size)
+
     writePos += len
+    buffer.writeInt32LE(-3, writePos)
 
     assert(len <= maxLen)
 
@@ -110,11 +115,13 @@ export function writer({ sharedState, sharedBuffer }) {
     return true
   }
 
-  async function _write(len, fn, opaque) {
-    let buf = Buffer.allocUnsafe(len)
-    buf = buf.subarray(0, fn(buf, opaque))
+  async function _write(maxLen, fn, opaque) {
+    assert(maxLen <= size)
 
-    while (!tryWrite(len, (dst, buf) => buf.copy(dst), buf)) {
+    const buf = Buffer.allocUnsafe(maxLen)
+    const len = fn(buf, opaque)
+
+    while (!_tryWrite(len, (dst, buf) => buf.copy(dst, 0, 0, len))) {
       const { async, value } = Atomics.waitAsync(state, READ_INDEX, readPos)
       if (async) {
         await value
@@ -127,29 +134,23 @@ export function writer({ sharedState, sharedBuffer }) {
       return
     }
 
-    let len
+    let maxLen
     let fn
     let opaque
 
     if (Number.isInteger(args[0])) {
-      len = args[0]
+      maxLen = args[0]
       fn = args[1]
       opaque = args[2]
 
-      assert(len >= 0)
+      assert(maxLen >= 0)
       assert(typeof fn === 'function')
     } else {
       if (Array.isArray(args[0])) {
         args = args[0]
       }
 
-      const data = args
-
-      len = 0
-      for (const buf of data) {
-        len += buf.byteLength ?? buf.length * 3
-      }
-
+      maxLen = args.reduce((len, buf) => len + Buffer.byteLength(buf), 0)
       fn = (dst, data) => {
         let pos = 0
         for (const buf of data) {
@@ -159,15 +160,14 @@ export function writer({ sharedState, sharedBuffer }) {
             pos += buf.copy(dst, pos)
           }
         }
-        assert(pos <= len)
+        assert(pos < maxLen)
         return pos
       }
-
-      opaque = data
+      opaque = args
     }
 
-    if (!tryWrite(len, fn, opaque)) {
-      return _write(len, fn, opaque)
+    if (!_tryWrite(maxLen, fn, opaque)) {
+      return _write(maxLen, fn, opaque)
     }
   }
 
