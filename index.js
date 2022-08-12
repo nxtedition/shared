@@ -44,10 +44,7 @@ async function* _reader({ sharedState, sharedBuffer }, cb) {
       readPos += len
 
       if (cb) {
-        const thenable = cb(raw)
-        if (typeof thenable?.then === 'function') {
-          await thenable
-        }
+        await cb(raw)
       } else {
         yield raw
       }
