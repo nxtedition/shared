@@ -66,18 +66,6 @@ export function reader(options, cb) {
   }
 }
 
-function arrayWrite(dst, data) {
-  let pos = 0
-  for (const buf of data) {
-    if (typeof buf === 'string') {
-      pos += dst.write(buf, pos)
-    } else {
-      pos += buf.copy(dst, pos)
-    }
-  }
-  return pos
-}
-
 export function writer({ sharedState, sharedBuffer }) {
   const state = new Int32Array(sharedState)
   const buffer = Buffer.from(sharedBuffer)
@@ -86,23 +74,29 @@ export function writer({ sharedState, sharedBuffer }) {
   let readPos = 0
   let writePos = 0
 
-  return function write(len, fn, opaque) {
-    if (!len) {
+  return function write(...args) {
+    if (!args.length) {
       return
     }
 
-    if (Number.isInteger(len)) {
+    let len
+    let fn
+
+    if (Number.isInteger(args[0])) {
+      len = args.shift()
+      fn = args.shift()
+
       assert(len >= 0, `len: ${len} >= 0`)
       assert(typeof fn === 'function', `fn: ${typeof fn} === 'function`)
     } else {
-      opaque = Array.isArray(len) ? len : arguments
-
-      len = 0
-      for (const buf of opaque) {
-        len += Buffer.byteLength(buf)
+      if (Array.isArray(args[0])) {
+        args = args[0]
       }
 
-      fn = arrayWrite
+      len = 0
+      for (const buf of args) {
+        len += Buffer.byteLength(buf)
+      }
     }
 
     assert(len <= size)
@@ -126,9 +120,21 @@ export function writer({ sharedState, sharedBuffer }) {
 
     buffer.writeInt32LE(-2, writePos)
     writePos += 4
+
     buffer.writeInt32LE(-3, writePos)
 
-    const pos = fn(buffer.subarray(writePos + 4, writePos + 4 + len), opaque)
+    let pos = 0
+    if (fn) {
+      pos += fn(buffer.subarray(writePos + 4, writePos + 4 + len), ...args)
+    } else {
+      for (const buf of args) {
+        if (typeof buf === 'string') {
+          pos += buffer.write(buf, writePos + 4 + pos)
+        } else {
+          pos += buf.copy(buffer, writePos + 4 + pos)
+        }
+      }
+    }
 
     assert(pos > 0, `pos: ${pos} > 0`)
     assert(pos <= len, `pos: ${pos} <= len: ${len}`)
